@@ -14,7 +14,7 @@ app.use(express.json());
 
 // Routes
 app.use("/api/auth", require("./routes/authRoutes"));
-app.use("/api/recipes", require("./routes/recipeRoutes"));
+app.use("/api/recipes", require("./routes/recipeRoutes")); // Make sure this is properly mapped
 
 const PORT = process.env.PORT || 5000;
 
