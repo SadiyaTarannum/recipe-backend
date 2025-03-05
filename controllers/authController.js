@@ -2,6 +2,15 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 
+// Function to generate JWT
+const generateToken = (user) => {
+    return jwt.sign(
+        { userId: user._id.toString() },  // ✅ Ensure `userId` is included
+        process.env.JWT_SECRET,
+        { expiresIn: "1h" }
+    );
+};
+
 const registerUser = async (req, res) => {
     const { name, email, password } = req.body;
 
@@ -20,25 +29,44 @@ const registerUser = async (req, res) => {
         console.log("✅ User registered successfully:", user);
         res.status(201).json({ message: "User registered successfully" });
     } catch (error) {
-        console.error("❌ Error in registerUser:", error); // Log error details
-        res.status(500).json({ message: error.message }); // Send actual error message
+        console.error("❌ Error in registerUser:", error);
+        res.status(500).json({ message: "Server error. Please try again later." });
     }
 };
+
 const loginUser = async (req, res) => {
     const { email, password } = req.body;
 
     try {
         const user = await User.findOne({ email });
-        if (!user) return res.status(401).json({ message: "Invalid credentials" });
+        if (!user) {
+            console.log("⚠️ Invalid credentials - User not found");
+            return res.status(401).json({ message: "Invalid credentials" });
+        }
 
         const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) return res.status(401).json({ message: "Invalid credentials" });
+        if (!isMatch) {
+            console.log("⚠️ Invalid credentials - Incorrect password");
+            return res.status(401).json({ message: "Invalid credentials" });
+        }
 
-        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "1h" });
+        // Generate JWT token
+        const token = generateToken(user);
+
+        console.log("✅ User logged in successfully:", user);
+
+        // Optional: Send token as an HTTP-only cookie for security
+        res.cookie("token", token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production", // Secure in production
+            sameSite: "Strict", // Protect against CSRF
+            maxAge: 3600000, // 1 hour
+        });
 
         res.json({ token, user: { id: user._id, name: user.name, email: user.email } });
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        console.error("❌ Error in loginUser:", error);
+        res.status(500).json({ message: "Server error. Please try again later." });
     }
 };
 
